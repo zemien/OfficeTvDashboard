@@ -1,0 +1,55 @@
+﻿<Page
+    x:Class="OfficeDashboard.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:OfficeDashboard"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.Resources>
+            <SolidColorBrush x:Key="brush" Color="Silver"/>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="3*"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="0" Grid.Column="0">
+            <Image Name="CarparkImageControl" Width="auto" Height="auto"></Image>
+            <TextBlock Name="CarparkTimestampTextBlock" Text="Carpark image updated on: " Style="{StaticResource BodyTextBlockStyle}"></TextBlock>
+        </StackPanel>
+        <StackPanel Grid.Row="0" Grid.Column="1">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <!--Settings-->
+                <Button Content="Refresh All" Margin="5"></Button>
+                <Button Content="Settings" Margin="5" Click="SettingsButton_OnClick"></Button>
+            </StackPanel>
+            <StackPanel>
+                <!--TeamCity Build Info-->
+                <ListView Name="TeamCityBuildListView" ItemsSource="{Binding Path=TeamCityBuilds}" DisplayMemberPath="BuildName"></ListView>
+            </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Grid.Column="0">
+            <!--Auckland Traffic-->
+            <!--Quote of the Day-->
+            <TextBlock Name="DailyQuoteTextBox" Style="{StaticResource HeaderTextBlockStyle}"/>
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="5 5 0 0" BorderBrush="{StaticResource brush}" BorderThickness="2 2 0 0">
+            <StackPanel Margin="20 5 5 5">
+            
+            <!--Weather-->
+            <TextBlock Name="WeatherTitleTextBlock" Style="{StaticResource HeaderTextBlockStyle}"/>
+            <StackPanel Orientation="Horizontal">
+                <Image Name="WeatherIconImage"></Image>
+                <TextBlock Name="WeatherTempTextBlock" Style="{StaticResource HeaderTextBlockStyle}"/>
+            </StackPanel>
+            <TextBlock Name="WeatherSummaryTextBlock" Style="{StaticResource SubtitleTextBlockStyle}"></TextBlock>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
