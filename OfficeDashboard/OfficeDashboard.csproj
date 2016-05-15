@@ -105,7 +105,7 @@
       <DependentUpon>SettingsDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="StringExtensions.cs" />
-    <Compile Include="Services\TeamCityBuild.cs" />
+    <Compile Include="ViewModels\TeamCityBuild.cs" />
     <Compile Include="Services\TeamCityService.cs" />
     <Compile Include="Services\TrafficService.cs" />
   </ItemGroup>

@@ -53,7 +53,7 @@ namespace OfficeDashboard
             var recentBuilds = await GetMostRecentBuilds();
 
             return (from element in recentBuilds
-                    where !exclusions.Contains(element.BuildTypeId)
+                    where !exclusions.Contains(element.BuildName)
                     orderby element.Id descending
                     group element by element.BuildTypeId
                         into groups

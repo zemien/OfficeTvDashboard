@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Imaging;
@@ -18,45 +17,88 @@ namespace OfficeDashboard
     /// </summary>
     public sealed partial class MainPage : Page
     {
-        private readonly DispatcherTimer mCarparkAndBuildTimer = new DispatcherTimer();
+        private readonly DispatcherTimer mFrequentTimer = new DispatcherTimer();
         private readonly DispatcherTimer mWeatherTimer = new DispatcherTimer();
-        private readonly DispatcherTimer mQuotesTimer = new DispatcherTimer();
         private Settings mSettings;
         private DailyQuotesService mDailyQuotesService;
         private TeamCityService mTeamCityService;
         ApplicationDataContainer mLocalSettings;
         private string mLastWeatherIcon = null;
+        private byte mLastDateQuoteRefreshed = 0;
 
         public MainPage()
         {
             InitializeComponent();
             mLocalSettings = ApplicationData.Current.LocalSettings;
-            TeamCityBuilds = new List<TeamCityBuild>();
+
+            //TODO: Remove mock object
+            TeamCityBuilds = new List<TeamCityBuild>
+            {
+                new TeamCityBuild
+                {
+                    BuildTypeId = "ProjectA_Development",
+                    Id = 1,
+                    Number = "1.15.0.1",
+                    State = "Finished",
+                    Status = "SUCCESS"
+                },
+                new TeamCityBuild
+                {
+                    BuildTypeId = "ProjectA_Trunk",
+                    Id = 2,
+                    Number = "1.15.0.7",
+                    State = "Finished",
+                    Status = "FAILED"
+                },
+                new TeamCityBuild
+                {
+                    BuildTypeId = "ProjectB_Development",
+                    Id = 3,
+                    Number = "3.2.0.1",
+                    State = "Building",
+                    Status = "IN PROGRESS"
+                },
+                new TeamCityBuild
+                {
+                    BuildTypeId = "ProjectC_Installer",
+                    Id = 4,
+                    Number = "1.15.6.1",
+                    State = "Finished",
+                    Status = "FAILED"
+                },
+                new TeamCityBuild
+                {
+                    BuildTypeId = "ProjectE_Test",
+                    Id = 5,
+                    Number = "1.5.0.1",
+                    State = "Finished",
+                    Status = "SUCCESS"
+                }
+            };
+
             LoadSettings();
             UpdateServices();
 
             CarparkImageControl.ImageOpened +=
                 (sender, args) => CarparkTimestampTextBlock.Text = $"Carpark as at {DateTime.Now.ToString("G")}";
 
-            mCarparkAndBuildTimer.Interval = TimeSpan.FromSeconds(30);
-            mCarparkAndBuildTimer.Tick += CarparkAndBuildTimerOnTick;
-            mCarparkAndBuildTimer.Start();
+            mFrequentTimer.Interval = TimeSpan.FromSeconds(30);
+            mFrequentTimer.Tick += FrequentTimerOnTick;
+            mFrequentTimer.Start();
 
             mWeatherTimer.Interval = TimeSpan.FromMinutes(10);
             mWeatherTimer.Tick += WeatherTimerOnTick;
             mWeatherTimer.Start();
 
-            mQuotesTimer.Interval = TimeSpan.FromDays(1);
-            mQuotesTimer.Tick += QuotesTimerOnTick;
-
             RefreshWeather();
             RefreshTeamCityBuilds();
-            UpdateDailyQuotes();
+            RefreshDailyQuote();
+
         }
 
         private void QuotesTimerOnTick(object sender, object e)
         {
-            UpdateDailyQuotes();
+            RefreshDailyQuote();
         }
 
         public List<TeamCityBuild> TeamCityBuilds { get; set; }
@@ -73,9 +115,17 @@ namespace OfficeDashboard
 
         public void UpdateServices()
         {
-            mTeamCityService = new TeamCityService(mSettings.TeamCityServerUrl);
+            if (!string.IsNullOrWhiteSpace(mSettings.TeamCityServerUrl))
+            {
+                mTeamCityService = new TeamCityService(mSettings.TeamCityServerUrl);
+            }
+
             //mTrafficService = new TrafficService("https://infoconnect1.highwayinfo.govt.nz/ic/jbi/", mSettings.MotorwayTrafficApiKey);
-            mDailyQuotesService = new DailyQuotesService(mSettings.DailyQuotesUrl);
+            if (!string.IsNullOrWhiteSpace(mSettings.DailyQuotesUrl))
+            {
+                mDailyQuotesService = new DailyQuotesService(mSettings.DailyQuotesUrl);
+            }
+
             ClientSettings.ApiKey = mSettings.WeatherApiKey;
         }
 
@@ -109,9 +159,16 @@ namespace OfficeDashboard
             }
         }
 
-        private void CarparkAndBuildTimerOnTick(object sender, object o)
+        private void FrequentTimerOnTick(object sender, object o)
         {
             RefreshCarparkImage();
+            RefreshTeamCityBuilds();
+
+            if(mLastDateQuoteRefreshed != DateTime.Today.Day)
+            {
+                RefreshDailyQuote();
+                mLastDateQuoteRefreshed = (byte)DateTime.Today.Day;
+            }
         }
 
         public void RefreshCarparkImage()
@@ -126,18 +183,39 @@ namespace OfficeDashboard
 
         public async void RefreshTeamCityBuilds()
         {
+            TeamCityBuildListView.ItemsSource = TeamCityBuilds;
             if (!string.IsNullOrEmpty(mSettings.TeamCityServerUrl))
             {
-                TeamCityBuilds = await mTeamCityService.GetMostRecentBuilds();                
+                try {
+                    TeamCityBuilds = await mTeamCityService.GetMostRecentBuilds();
+                }
+                catch(Exception e)
+                {
+                    Debug.WriteLine(e);
+                }        
             }
         }
 
-        public async void UpdateDailyQuotes()
+        public async void RefreshDailyQuote()
         {
             if (!string.IsNullOrEmpty(mSettings.DailyQuotesUrl))
             {
-                var quoteTuple = await mDailyQuotesService.GetDailyQuote();
-                DailyQuoteTextBox.Text = $"\"{quoteTuple.Item1}\"";
+                try
+                {
+                    var quoteTuple = await mDailyQuotesService.GetDailyQuote();
+                    var quote = quoteTuple.Item1;
+                    if (quote.Length > 200)
+                    {
+                        quote = quote.Substring(0, 200) + " ...";
+                    }
+
+                    DailyQuoteTextBox.Text = $"\"{quote}\"";
+                    DailyQuoteAuthorTextBox.Text = $"-{quoteTuple.Item2}";
+                }
+                catch (Exception e)
+                {
+                    Debug.WriteLine(e);
+                }
             }
         }
 
@@ -153,6 +231,15 @@ namespace OfficeDashboard
                 RefreshCarparkImage();
                 RefreshWeather();
             }
+        }
+
+        private void RefreshAll_OnClick(object sender, RoutedEventArgs e)
+        {
+            RefreshDailyQuote();
+            RefreshCarparkImage();
+            RefreshWeather();
+            RefreshTeamCityBuilds();
+
         }
     }
 }

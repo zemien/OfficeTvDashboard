@@ -1,4 +1,6 @@
-﻿namespace OfficeDashboard
+﻿using System;
+
+namespace OfficeDashboard
 {
     public class TeamCityBuild
     {
@@ -57,5 +59,10 @@
         /// The state.
         /// </value>
         public string State { get; set; }
+
+        public override string ToString()
+        {
+            return $"{BuildTypeId}{Environment.NewLine}{Number}{Environment.NewLine}{Status}";
+        }
     }
 }
