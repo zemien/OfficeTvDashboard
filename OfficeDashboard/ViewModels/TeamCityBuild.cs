@@ -29,12 +29,19 @@ namespace OfficeDashboard
         public string BuildProject => BuildTypeId?.Split('_')[0];
 
         /// <summary>
-        /// Gets the name of the build.
+        /// Gets the name of the build if there is one.
         /// </summary>
         /// <value>
         /// The name of the build.
         /// </value>
-        public string BuildName => BuildTypeId?.Split('_')[1];
+        public string BuildName
+        {
+            get
+            {
+                var splitBuildTypeId = BuildTypeId?.Split('_');
+                return splitBuildTypeId?.Length == 2 ? splitBuildTypeId[1] : string.Empty;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the build number.

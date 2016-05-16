@@ -7,6 +7,7 @@ using Windows.UI.Xaml.Media.Imaging;
 using WeatherNet;
 using WeatherNet.Clients;
 using Windows.Storage;
+using Windows.UI.Xaml.Media;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -22,7 +23,7 @@ namespace OfficeDashboard
         private Settings mSettings;
         private DailyQuotesService mDailyQuotesService;
         private TeamCityService mTeamCityService;
-        ApplicationDataContainer mLocalSettings;
+        readonly ApplicationDataContainer mLocalSettings;
         private string mLastWeatherIcon = null;
         private byte mLastDateQuoteRefreshed = 0;
 
@@ -32,49 +33,49 @@ namespace OfficeDashboard
             mLocalSettings = ApplicationData.Current.LocalSettings;
 
             //TODO: Remove mock object
-            TeamCityBuilds = new List<TeamCityBuild>
-            {
-                new TeamCityBuild
-                {
-                    BuildTypeId = "ProjectA_Development",
-                    Id = 1,
-                    Number = "1.15.0.1",
-                    State = "Finished",
-                    Status = "SUCCESS"
-                },
-                new TeamCityBuild
-                {
-                    BuildTypeId = "ProjectA_Trunk",
-                    Id = 2,
-                    Number = "1.15.0.7",
-                    State = "Finished",
-                    Status = "FAILED"
-                },
-                new TeamCityBuild
-                {
-                    BuildTypeId = "ProjectB_Development",
-                    Id = 3,
-                    Number = "3.2.0.1",
-                    State = "Building",
-                    Status = "IN PROGRESS"
-                },
-                new TeamCityBuild
-                {
-                    BuildTypeId = "ProjectC_Installer",
-                    Id = 4,
-                    Number = "1.15.6.1",
-                    State = "Finished",
-                    Status = "FAILED"
-                },
-                new TeamCityBuild
-                {
-                    BuildTypeId = "ProjectE_Test",
-                    Id = 5,
-                    Number = "1.5.0.1",
-                    State = "Finished",
-                    Status = "SUCCESS"
-                }
-            };
+            //TeamCityBuilds = new List<TeamCityBuild>
+            //{
+            //    new TeamCityBuild
+            //    {
+            //        BuildTypeId = "ProjectA_Development",
+            //        Id = 1,
+            //        Number = "1.15.0.1",
+            //        State = "Finished",
+            //        Status = "SUCCESS"
+            //    },
+            //    new TeamCityBuild
+            //    {
+            //        BuildTypeId = "ProjectA_Trunk",
+            //        Id = 2,
+            //        Number = "1.15.0.7",
+            //        State = "Finished",
+            //        Status = "FAILED"
+            //    },
+            //    new TeamCityBuild
+            //    {
+            //        BuildTypeId = "ProjectB_Development",
+            //        Id = 3,
+            //        Number = "3.2.0.1",
+            //        State = "Building",
+            //        Status = "IN PROGRESS"
+            //    },
+            //    new TeamCityBuild
+            //    {
+            //        BuildTypeId = "ProjectC_Installer",
+            //        Id = 4,
+            //        Number = "1.15.6.1",
+            //        State = "Finished",
+            //        Status = "FAILED"
+            //    },
+            //    new TeamCityBuild
+            //    {
+            //        BuildTypeId = "ProjectE_Test",
+            //        Id = 5,
+            //        Number = "1.5.0.1",
+            //        State = "Finished",
+            //        Status = "SUCCESS"
+            //    }
+            //};
 
             LoadSettings();
             UpdateServices();
@@ -90,15 +91,11 @@ namespace OfficeDashboard
             mWeatherTimer.Tick += WeatherTimerOnTick;
             mWeatherTimer.Start();
 
+            RefreshDailyQuote();
+            RefreshCarparkImage();
             RefreshWeather();
             RefreshTeamCityBuilds();
-            RefreshDailyQuote();
 
-        }
-
-        private void QuotesTimerOnTick(object sender, object e)
-        {
-            RefreshDailyQuote();
         }
 
         public List<TeamCityBuild> TeamCityBuilds { get; set; }
@@ -143,13 +140,26 @@ namespace OfficeDashboard
 
                 if (!string.IsNullOrWhiteSpace(weather.Icon) && (weather.Icon != mLastWeatherIcon))
                 {
+                    var currentHour = DateTime.Now.Hour;
+                    string weatherPrefix;
+                    if (currentHour >= 6 && currentHour <= 18)
+                    {
+                        weatherPrefix = "d";
+                    }
+                    else
+                    {
+                        weatherPrefix = "n";
+                    }
+
+                    weather.Icon = weather.Icon.Substring(0, weather.Icon.Length - 1) + weatherPrefix;
+
                     var uri = new Uri($"http://openweathermap.org/img/w/{weather.Icon}.png");
                     var bitmap = new BitmapImage(uri);
                     WeatherIconImage.Source = bitmap;
                     mLastWeatherIcon = weather.Icon;
                 }
 
-                WeatherTitleTextBlock.Text = weather.Date.ToString("ddd MMM dd");
+                WeatherTitleTextBlock.Text = weather.Date.ToLocalTime().ToString("ddd MMM dd");
                 WeatherTempTextBlock.Text = $"{weather.Temp}\u00B0C";
                 WeatherSummaryTextBlock.Text = $"{weather.Description.ToTitleCase()}{Environment.NewLine}Relative Humidity: {weather.Humidity}%{Environment.NewLine}Wind Speed: {weather.WindSpeed} m/s";
             }
@@ -164,7 +174,7 @@ namespace OfficeDashboard
             RefreshCarparkImage();
             RefreshTeamCityBuilds();
 
-            if(mLastDateQuoteRefreshed != DateTime.Today.Day)
+            if (mLastDateQuoteRefreshed != DateTime.Today.Day)
             {
                 RefreshDailyQuote();
                 mLastDateQuoteRefreshed = (byte)DateTime.Today.Day;
@@ -176,23 +186,25 @@ namespace OfficeDashboard
             if (!string.IsNullOrEmpty(mSettings.GarageCamImageUrl))
             {
                 var bitmapImage = new BitmapImage(new Uri(mSettings.GarageCamImageUrl, UriKind.Absolute));
-                
+
                 CarparkImageControl.Source = bitmapImage;
             }
         }
 
         public async void RefreshTeamCityBuilds()
         {
-            TeamCityBuildListView.ItemsSource = TeamCityBuilds;
+
             if (!string.IsNullOrEmpty(mSettings.TeamCityServerUrl))
             {
-                try {
-                    TeamCityBuilds = await mTeamCityService.GetMostRecentBuilds();
+                try
+                {
+                    TeamCityBuilds = await mTeamCityService.GetUniqueProjectsMostRecentBuilds(new List<string> {"AutomatedTesting"});
+                    TeamCityBuildListView.ItemsSource = TeamCityBuilds;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     Debug.WriteLine(e);
-                }        
+                }
             }
         }
 

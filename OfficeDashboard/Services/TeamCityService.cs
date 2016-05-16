@@ -47,17 +47,15 @@ namespace OfficeDashboard
         /// Gets the most recent build of each unique build type, excluding specified build type IDs 
         /// </summary>
         /// <returns></returns>
-        public async Task<List<TeamCityBuild>> GetUniqueProjectsMostRecentBuilds(List<string> excludeBuildTypeIds)
+        public async Task<List<TeamCityBuild>> GetUniqueProjectsMostRecentBuilds(List<string> excludeBuildProjects)
         {
-            var exclusions = excludeBuildTypeIds ?? new List<string>();
+            var exclusions = excludeBuildProjects ?? new List<string>();
             var recentBuilds = await GetMostRecentBuilds();
 
-            return (from element in recentBuilds
-                    where !exclusions.Contains(element.BuildName)
-                    orderby element.Id descending
-                    group element by element.BuildTypeId
-                        into groups
-                    select groups.OrderByDescending(e => e.Id).First()).ToList();
+            return (recentBuilds.Where(element => !exclusions.Contains(element.BuildProject))
+                .OrderByDescending(element => element.Id)
+                .GroupBy(element => element.BuildTypeId)
+                .Select(groups => groups.First()).OrderByDescending(element => element.Id)).ToList();
                    
         }
     }
