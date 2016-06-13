@@ -19,29 +19,14 @@ namespace OfficeDashboard
         /// The build type identifier.
         /// </value>
         public string BuildTypeId { get; set; }
-
-        /// <summary>
-        /// Gets the build project.
-        /// </summary>
-        /// <value>
-        /// The build project.
-        /// </value>
-        public string BuildProject => BuildTypeId?.Split('_')[0];
-
+        
         /// <summary>
         /// Gets the name of the build if there is one.
         /// </summary>
         /// <value>
         /// The name of the build.
         /// </value>
-        public string BuildName
-        {
-            get
-            {
-                var splitBuildTypeId = BuildTypeId?.Split('_');
-                return splitBuildTypeId?.Length == 2 ? splitBuildTypeId[1] : string.Empty;
-            }
-        }
+        public string ProjectName { get; set; }
 
         /// <summary>
         /// Gets or sets the build number.
@@ -60,6 +45,14 @@ namespace OfficeDashboard
         public string Status { get; set; }
 
         /// <summary>
+        /// Gets or sets the status text.
+        /// </summary>
+        /// <value>
+        /// The status text.
+        /// </value>
+        public string StatusText { get; set; }
+
+        /// <summary>
         /// Gets or sets the state.
         /// </summary>
         /// <value>
@@ -67,9 +60,20 @@ namespace OfficeDashboard
         /// </value>
         public string State { get; set; }
 
-        public override string ToString()
-        {
-            return $"{BuildTypeId}{Environment.NewLine}{Number}{Environment.NewLine}{Status}";
-        }
+        /// <summary>
+        /// Gets or sets the link to more information about this build.
+        /// </summary>
+        /// <value>
+        /// The href.
+        /// </value>
+        public string Href { get; set; }
+
+        /// <summary>
+        /// Gets or sets the last changed by.
+        /// </summary>
+        /// <value>
+        /// The last changed by.
+        /// </value>
+        public string LastChangedBy { get; set; }
     }
 }

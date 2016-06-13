@@ -7,7 +7,6 @@ using Windows.UI.Xaml.Media.Imaging;
 using WeatherNet;
 using WeatherNet.Clients;
 using Windows.Storage;
-using Windows.UI.Xaml.Media;
 
 // The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
 
@@ -25,63 +24,18 @@ namespace OfficeDashboard
         private TeamCityService mTeamCityService;
         readonly ApplicationDataContainer mLocalSettings;
         private string mLastWeatherIcon = null;
-        private byte mLastDateQuoteRefreshed = 0;
+        private byte mLastHourQuoteRefreshed = 0;
 
         public MainPage()
         {
             InitializeComponent();
             mLocalSettings = ApplicationData.Current.LocalSettings;
-
-            //TODO: Remove mock object
-            //TeamCityBuilds = new List<TeamCityBuild>
-            //{
-            //    new TeamCityBuild
-            //    {
-            //        BuildTypeId = "ProjectA_Development",
-            //        Id = 1,
-            //        Number = "1.15.0.1",
-            //        State = "Finished",
-            //        Status = "SUCCESS"
-            //    },
-            //    new TeamCityBuild
-            //    {
-            //        BuildTypeId = "ProjectA_Trunk",
-            //        Id = 2,
-            //        Number = "1.15.0.7",
-            //        State = "Finished",
-            //        Status = "FAILED"
-            //    },
-            //    new TeamCityBuild
-            //    {
-            //        BuildTypeId = "ProjectB_Development",
-            //        Id = 3,
-            //        Number = "3.2.0.1",
-            //        State = "Building",
-            //        Status = "IN PROGRESS"
-            //    },
-            //    new TeamCityBuild
-            //    {
-            //        BuildTypeId = "ProjectC_Installer",
-            //        Id = 4,
-            //        Number = "1.15.6.1",
-            //        State = "Finished",
-            //        Status = "FAILED"
-            //    },
-            //    new TeamCityBuild
-            //    {
-            //        BuildTypeId = "ProjectE_Test",
-            //        Id = 5,
-            //        Number = "1.5.0.1",
-            //        State = "Finished",
-            //        Status = "SUCCESS"
-            //    }
-            //};
-
+            
             LoadSettings();
             UpdateServices();
 
             CarparkImageControl.ImageOpened +=
-                (sender, args) => CarparkTimestampTextBlock.Text = $"Carpark as at {DateTime.Now.ToString("G")}";
+                (sender, args) => Debug.WriteLine($"Carpark image loaded {DateTime.Now.ToString("G")}");
 
             mFrequentTimer.Interval = TimeSpan.FromSeconds(30);
             mFrequentTimer.Tick += FrequentTimerOnTick;
@@ -95,7 +49,6 @@ namespace OfficeDashboard
             RefreshCarparkImage();
             RefreshWeather();
             RefreshTeamCityBuilds();
-
         }
 
         public List<TeamCityBuild> TeamCityBuilds { get; set; }
@@ -160,8 +113,8 @@ namespace OfficeDashboard
                 }
 
                 WeatherTitleTextBlock.Text = weather.Date.ToLocalTime().ToString("ddd MMM dd");
-                WeatherTempTextBlock.Text = $"{weather.Temp}\u00B0C";
-                WeatherSummaryTextBlock.Text = $"{weather.Description.ToTitleCase()}{Environment.NewLine}Relative Humidity: {weather.Humidity}%{Environment.NewLine}Wind Speed: {weather.WindSpeed} m/s";
+                WeatherTempTextBlock.Text = $"{Math.Round(weather.Temp)}\u00B0C";
+                WeatherSummaryTextBlock.Text = weather.Description.ToTitleCase();
             }
             catch (Exception e)
             {
@@ -173,20 +126,17 @@ namespace OfficeDashboard
         {
             RefreshCarparkImage();
             RefreshTeamCityBuilds();
-
-            if (mLastDateQuoteRefreshed != DateTime.Today.Day)
-            {
-                RefreshDailyQuote();
-                mLastDateQuoteRefreshed = (byte)DateTime.Today.Day;
-            }
+            RefreshDailyQuote();
         }
 
         public void RefreshCarparkImage()
         {
             if (!string.IsNullOrEmpty(mSettings.GarageCamImageUrl))
             {
-                var bitmapImage = new BitmapImage(new Uri(mSettings.GarageCamImageUrl, UriKind.Absolute));
+                CarparkImageControlClone.Source = CarparkImageControl.Source; //to prevent flickering
+                CarparkImageControl.Source = null; //Specifically unload the image to prevent caching on RasPi
 
+                var bitmapImage = new BitmapImage(new Uri(mSettings.GarageCamImageUrl, UriKind.Absolute)) {CreateOptions = BitmapCreateOptions.IgnoreImageCache};
                 CarparkImageControl.Source = bitmapImage;
             }
         }
@@ -198,7 +148,7 @@ namespace OfficeDashboard
             {
                 try
                 {
-                    TeamCityBuilds = await mTeamCityService.GetUniqueProjectsMostRecentBuilds(new List<string> {"AutomatedTesting"});
+                    TeamCityBuilds = await mTeamCityService.GetUniqueProjectsMostRecentBuilds("AutomatedTesting");
                     TeamCityBuildListView.ItemsSource = TeamCityBuilds;
                 }
                 catch (Exception e)
@@ -210,19 +160,18 @@ namespace OfficeDashboard
 
         public async void RefreshDailyQuote()
         {
-            if (!string.IsNullOrEmpty(mSettings.DailyQuotesUrl))
+            var hour = DateTime.Now.Hour;
+         
+            if (!string.IsNullOrEmpty(mSettings.DailyQuotesUrl) && mLastHourQuoteRefreshed != hour)
             {
                 try
                 {
                     var quoteTuple = await mDailyQuotesService.GetDailyQuote();
                     var quote = quoteTuple.Item1;
-                    if (quote.Length > 200)
-                    {
-                        quote = quote.Substring(0, 200) + " ...";
-                    }
 
                     DailyQuoteTextBox.Text = $"\"{quote}\"";
                     DailyQuoteAuthorTextBox.Text = $"-{quoteTuple.Item2}";
+                    mLastHourQuoteRefreshed = (byte)hour;
                 }
                 catch (Exception e)
                 {

@@ -28,7 +28,7 @@ namespace OfficeDashboard
             mWebServiceCaller.DefaultRequestHeaders
                 .Accept
                 .Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            mWebServiceCaller.BaseAddress = new Uri($"{Url}/guestAuth/app/rest/");
+            mWebServiceCaller.BaseAddress = new Uri(Url);
         }
 
         /// <summary>
@@ -36,7 +36,7 @@ namespace OfficeDashboard
         /// </summary>
         public async Task<List<TeamCityBuild>> GetMostRecentBuilds()
         {
-            var buildString = await mWebServiceCaller.GetStringAsync("builds/");
+            var buildString = await mWebServiceCaller.GetStringAsync("/guestAuth/app/rest/builds/");
             var buildJson = JObject.Parse(buildString);
             
             var builds = ((JArray)buildJson["build"]).ToObject<List<TeamCityBuild>>();
@@ -44,19 +44,49 @@ namespace OfficeDashboard
         }
 
         /// <summary>
-        /// Gets the most recent build of each unique build type, excluding specified build type IDs 
+        /// Gets the most recent build of each unique build type, excluding specified build type IDs
         /// </summary>
+        /// <param name="excludeBuildTypeIds">The exclude build type ids.</param>
         /// <returns></returns>
-        public async Task<List<TeamCityBuild>> GetUniqueProjectsMostRecentBuilds(List<string> excludeBuildProjects)
+        public async Task<List<TeamCityBuild>> GetUniqueProjectsMostRecentBuilds(string excludeBuildTypeIds)
         {
-            var exclusions = excludeBuildProjects ?? new List<string>();
+            var exclusion = excludeBuildTypeIds ?? string.Empty;
             var recentBuilds = await GetMostRecentBuilds();
 
-            return (recentBuilds.Where(element => !exclusions.Contains(element.BuildProject))
+            var mostRecentBuilds = (recentBuilds.Where(element => !element.BuildTypeId.Contains(exclusion))
                 .OrderByDescending(element => element.Id)
                 .GroupBy(element => element.BuildTypeId)
                 .Select(groups => groups.First()).OrderByDescending(element => element.Id)).ToList();
-                   
+
+            await FillBuildDetails(mostRecentBuilds);
+
+            return mostRecentBuilds;
+
+        }
+
+        /// <summary>
+        /// Fills the build details (Project name and status text).
+        /// </summary>
+        /// <param name="builds">The builds.</param>
+        public async Task FillBuildDetails(List<TeamCityBuild> builds)
+        {
+            foreach (var build in builds)
+            {
+                if (string.IsNullOrWhiteSpace(build.Href))
+                    continue;
+
+                var buildDetails = await mWebServiceCaller.GetStringAsync(build.Href);
+                var buildDetailsJson = JObject.Parse(buildDetails);
+
+                if (buildDetailsJson == null)
+                {
+                    continue;
+                }
+
+                build.ProjectName = (string)buildDetailsJson["buildType"]?["name"];
+                build.StatusText = (string) buildDetailsJson["statusText"];
+                build.LastChangedBy = (string) buildDetailsJson["lastChanges"]?["change"]?[0]?["username"];
+            }
         }
     }
 }
